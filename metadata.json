@@ -1,0 +1,6 @@
+{
+  "name": "پیدایاب",
+  "description": "سامانه جستجو و کشف هوشمند کالا و خودرو با هوش مصنوعی و بینایی ماشین - هر چیزی رو که میبینی، پیدا کن.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
