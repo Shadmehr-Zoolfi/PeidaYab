@@ -189,7 +189,7 @@ class MainViewModel(
             _searchResults.value = results
             _searchQuery.value = "جستجوی بصری: $tag"
             _currentTab.value = 1
-            _snackbarMessage.value = "تصویر با موفقیت تحلیل شد و ${results.size} گزینه منطبق یافت شد."
+            _snackbarMessage.value = "تصویر تحلیل شد و ${results.size} مورد منطبق در کاتالوگ آزمایشی یافت گردید."
         }
     }
 
@@ -199,7 +199,7 @@ class MainViewModel(
             _searchResults.value = results
             _searchQuery.value = "تحلیل ویدیویی: $videoTag"
             _currentTab.value = 1
-            _snackbarMessage.value = "فریم‌های ویدیو بررسی شد و اشیاء موردنظر استخراج گردید."
+            _snackbarMessage.value = "فریم‌های ویدیو بررسی شد و کالای منطبق در کاتالوگ آزمایشی شناسایی شد."
         }
     }
 
@@ -209,7 +209,7 @@ class MainViewModel(
             _searchResults.value = results
             _searchQuery.value = "تحلیل کاتالوگ: $fileTitle"
             _currentTab.value = 1
-            _snackbarMessage.value = "داده‌های فایل استخراج و در بازار مقایسه شدند."
+            _snackbarMessage.value = "داده‌های فایل استخراج و با آگهی‌های کاتالوگ آزمایشی تطبیق داده شد."
         }
     }
 

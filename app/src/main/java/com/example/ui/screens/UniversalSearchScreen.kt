@@ -178,12 +178,12 @@ fun UniversalSearchScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "جستجوی تصویری با تحلیل هوش مصنوعی اشیاء",
+                                text = "جستجوی تصویری با تحلیل هوش مصنوعی اشیاء (حالت آزمایشی)",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "عکس بگیرید یا از گالری انتخاب کنید (خودرو، کفش، موبایل، ساعت)",
+                                text = "عکس بگیرید یا از نمونه‌ها انتخاب کنید (حفظ حریم خصوصی: بدون چهره/هویت فردی)",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -226,12 +226,12 @@ fun UniversalSearchScreen(
                                 .padding(12.dp)
                         ) {
                             Text(
-                                text = "پیدا کردن از روی ویدیو و شبکه‌های اجتماعی",
+                                text = "پیدا کردن از روی ویدیو و شبکه‌های اجتماعی (حالت آزمایشی)",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "آدرس ویدیوی عمومی اینستاگرام، تیک‌تاک یا یوتیوب شورتس را وارد کنید:",
+                                text = "آدرس ویدیو را وارد کنید (در حالت پیش‌نمایش، فریم‌های کاتالوگ آزمایشی تحلیل می‌شوند):",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -268,12 +268,12 @@ fun UniversalSearchScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "تحلیل هوشمند فایل و استخراج جدول مشخصات/قیمت",
+                                text = "تحلیل هوشمند فایل و استخراج جدول مشخصات/قیمت (حالت آزمایشی)",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "پشتیبانی از PDF، اکسل، ورد و فاکتورهای رسمی خودرو و کالا",
+                                text = "پشتیبانی از PDF و اکسل (استخراج و تطابق با کاتالوگ آزمایشی خودرو و کالا)",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
