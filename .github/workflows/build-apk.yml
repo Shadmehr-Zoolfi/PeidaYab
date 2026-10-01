@@ -42,7 +42,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           echo "Building PeidaYab..."
-          gradle :app:tasks --all
+          gradle :app:tasks --all --group android
           gradle :app:assembleDebug
 
       - name: Find APK
