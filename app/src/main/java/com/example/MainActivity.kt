@@ -81,6 +81,12 @@ fun PidayabApp(viewModel: MainViewModel) {
     val isAssistantThinking by viewModel.isAssistantThinking.collectAsState()
     val shareText by viewModel.shareText.collectAsState()
     val snackbarMsg by viewModel.snackbarMessage.collectAsState()
+    val isRealWebResults by viewModel.isRealWebResults.collectAsState()
+    val forceDemoMode by viewModel.forceDemoMode.collectAsState()
+    val priceAnalysis by viewModel.priceAnalysis.collectAsState()
+    val lastCheckedTime by viewModel.lastCheckedTime.collectAsState()
+    val searchStatusBanner by viewModel.searchStatusBanner.collectAsState()
+    val providersState by viewModel.providersState.collectAsState()
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -175,7 +181,8 @@ fun PidayabApp(viewModel: MainViewModel) {
                         )
                         viewModel.addPriceAlert(alert)
                     },
-                    onShare = { viewModel.generateShareSummary(it) }
+                    onShare = { viewModel.generateShareSummary(it) },
+                    onOpenSourceUrl = { viewModel.openRealSourceUrl(context, it) }
                 )
             } else {
                 when (currentTab) {
@@ -216,7 +223,13 @@ fun PidayabApp(viewModel: MainViewModel) {
                         onViewDetail = { viewModel.openDetail(it) },
                         onToggleBookmark = { viewModel.toggleBookmark(it) },
                         onCompare = { viewModel.addToComparison(it) },
-                        onShare = { viewModel.generateShareSummary(it) }
+                        onShare = { viewModel.generateShareSummary(it) },
+                        isRealWebResults = isRealWebResults,
+                        forceDemoMode = forceDemoMode,
+                        onToggleForceDemo = { viewModel.toggleForceDemo(it) },
+                        priceAnalysis = priceAnalysis,
+                        lastCheckedTime = lastCheckedTime,
+                        searchStatusBanner = searchStatusBanner
                     )
                     2 -> ComparisonScreen(
                         itemsToCompare = comparisonItems,
@@ -243,7 +256,8 @@ fun PidayabApp(viewModel: MainViewModel) {
                     )
                     5 -> ProfileAndAdminScreen(
                         userPreferences = userPreferences,
-                        onPreferencesChange = { viewModel.updateUserPreferences(it) }
+                        onPreferencesChange = { viewModel.updateUserPreferences(it) },
+                        providersState = providersState
                     )
                 }
             }

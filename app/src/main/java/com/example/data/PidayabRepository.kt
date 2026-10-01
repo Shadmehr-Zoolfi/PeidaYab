@@ -1,23 +1,29 @@
 package com.example.data
 
-import com.example.model.ExtractedFilters
-import com.example.model.HistoricalPricePoint
-import com.example.model.PriceAlert
-import com.example.model.ProductItem
-import com.example.model.UserPreferences
+import com.example.data.engine.DeduplicationEngine
+import com.example.data.engine.EvidenceBasedRiskAnalyzer
+import com.example.data.engine.PriceAnalysisEngine
+import com.example.data.engine.ScoreEngine
+import com.example.data.engine.SearchCacheManager
+import com.example.data.provider.*
+import com.example.model.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-interface SearchProvider {
-    val providerName: String
-    val isLiveApi: Boolean
-    suspend fun search(query: String, filters: ExtractedFilters? = null): List<ProductItem>
-    suspend fun searchByImage(descriptionOrTag: String): List<ProductItem>
-    suspend fun searchByVideo(videoTagOrUrl: String): List<ProductItem>
-    suspend fun searchByFile(documentTitle: String): List<ProductItem>
-}
+class MarketplaceDemoSearchProvider : MarketplaceSearchProvider, ImageSearchProvider, VideoSearchProvider, FileSearchProvider {
+    override val providerId: String = "marketplace_demo"
+    override val providerName: String = "موتور کاوش آگهی‌های مجاز (حالت آزمایشی)"
 
-class MarketplaceDemoSearchProvider : SearchProvider {
-    override val providerName: String = "موتور کاوش آگهی‌های مجاز (حالت آزمایشی تاییدشده)"
-    override val isLiveApi: Boolean = false
+    override fun getStatus(): ProviderState {
+        return ProviderState(
+            providerId = providerId,
+            providerName = providerName,
+            status = ProviderStatus.CONNECTED_ACTIVE,
+            statusMessage = "کاتالوگ آزمایشی تاییدشده فعال است.",
+            isRealWeb = false
+        )
+    }
 
     private val allCatalog: List<ProductItem> = listOf(
         // Corolla Cross 1 - Best Choice, Local Tabriz, 6.85 Billion
@@ -388,11 +394,25 @@ class MarketplaceDemoSearchProvider : SearchProvider {
     override suspend fun searchByFile(documentTitle: String): List<ProductItem> {
         return allCatalog.filter { it.category.contains("خودرو") }
     }
+
+    fun searchSync(): List<ProductItem> = allCatalog
 }
 
 class PidayabRepository(
-    private val searchProvider: SearchProvider = MarketplaceDemoSearchProvider()
+    val webSearchProvider: WebSearchProvider = WebSearchProvider(apiKey = com.example.BuildConfig.SEARCH_API_KEY.ifBlank { null })
 ) {
+    private val demoSearchProvider = MarketplaceDemoSearchProvider()
+    val demoCatalog: List<ProductItem> = demoSearchProvider.searchSync()
+
+    val vehicleProvider: VehicleSearchProvider = RealVehicleSearchProvider(webSearchProvider, demoCatalog)
+    val productProvider: ProductSearchProvider = RealProductSearchProvider(webSearchProvider, demoCatalog)
+    val marketplaceProvider: MarketplaceSearchProvider = RealMarketplaceSearchProvider(webSearchProvider, demoCatalog)
+    val imageProvider: ImageSearchProvider = RealImageSearchProvider(demoCatalog)
+    val videoProvider: VideoSearchProvider = RealVideoSearchProvider(demoCatalog)
+    val fileProvider: FileSearchProvider = RealFileSearchProvider(demoCatalog)
+
+    val cacheManager: SearchCacheManager = SearchCacheManager()
+
     private val bookmarkedIds = mutableSetOf<String>()
     private val savedSearchesList = mutableListOf(
         "کرولا کراس هیبرید ۲۰۲۵ زیر ۷ میلیارد",
@@ -431,29 +451,155 @@ class PidayabRepository(
 
     var userPreferences = UserPreferences()
 
-    suspend fun performSearch(query: String, filters: ExtractedFilters? = null): List<ProductItem> {
-        if (query.isNotBlank() && !recentSearchesList.contains(query.trim())) {
-            recentSearchesList.add(0, query.trim())
+    fun getProvidersState(): List<ProviderState> {
+        return listOf(
+            webSearchProvider.getStatus(),
+            vehicleProvider.getStatus(),
+            productProvider.getStatus(),
+            imageProvider.getStatus(),
+            videoProvider.getStatus(),
+            fileProvider.getStatus()
+        )
+    }
+
+    fun isRealWebActive(): Boolean {
+        return webSearchProvider.getStatus().status == ProviderStatus.CONNECTED_ACTIVE
+    }
+
+    fun calculatePriceAnalysis(items: List<ProductItem>): PriceAnalysisResult {
+        return PriceAnalysisEngine.calculate(items)
+    }
+
+    suspend fun performSearchWithState(
+        query: String,
+        filters: ExtractedFilters? = null,
+        forceDemo: Boolean = false
+    ): SearchResultState {
+        val q = query.trim()
+        val filterKey = "${filters?.brand}_${filters?.model}_${filters?.priceMax}_${filters?.location}"
+
+        // Check Cache first
+        val cached = cacheManager.get(q, filterKey)
+        if (cached != null) {
+            val (cachedItems, timeLabel) = cached
+            return SearchResultState.Success(
+                items = cachedItems.map { it.copy(isBookmarked = isBookmarked(it.id)) },
+                isFromRealWeb = cachedItems.any { !it.isDemo },
+                cachedTime = timeLabel,
+                message = "نتایج از حافظه موقت (بررسی شده در: $timeLabel)"
+            )
         }
-        val items = searchProvider.search(query, filters)
+
+        if (q.isNotBlank() && !recentSearchesList.contains(q)) {
+            recentSearchesList.add(0, q)
+        }
+
+        val webStatus = webSearchProvider.getStatus()
+        if (!forceDemo && webStatus.status == ProviderStatus.CONNECTED_ACTIVE) {
+            try {
+                val realResults = webSearchProvider.search(q, filters)
+                if (realResults.isNotEmpty()) {
+                    val deduplicated = DeduplicationEngine.deduplicate(realResults)
+                    val enriched = enrichItems(deduplicated, filters)
+                    val timeLabel = "امروز ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())}"
+                    cacheManager.put(q, filterKey, enriched, timeLabel)
+                    return SearchResultState.Success(
+                        items = enriched.map { it.copy(isBookmarked = isBookmarked(it.id)) },
+                        isFromRealWeb = true,
+                        cachedTime = timeLabel,
+                        message = "نتایج واقعی وب دریافت شد (${enriched.size} مورد)"
+                    )
+                } else {
+                    return SearchResultState.Empty("نتیجه‌ای در جستجوی اینترنتی مطابق این درخواست پیدا نشد.")
+                }
+            } catch (e: RateLimitException) {
+                return SearchResultState.Error(e.message ?: "محدودیت تعداد درخواست روزانه جستجو (Rate Limit) تکمیل شده است.", canFallbackToDemo = true)
+            } catch (e: AuthenticationException) {
+                return SearchResultState.Error(e.message ?: "کلید جستجوی وب نامعتبر است.", canFallbackToDemo = true)
+            } catch (e: Exception) {
+                return SearchResultState.Error("در حال حاضر امکان جستجوی آنلاین وجود ندارد.", canFallbackToDemo = true)
+            }
+        }
+
+        // Demo Reference Catalog Mode
+        val rawItems = when {
+            filters?.category?.contains("خودرو") == true || q.contains("خودرو") || q.contains("کرولا") || q.contains("ماشین") -> {
+                vehicleProvider.search(q, filters)
+            }
+            filters?.category != null -> {
+                productProvider.search(q, filters)
+            }
+            else -> {
+                marketplaceProvider.search(q, filters)
+            }
+        }
+
+        val deduplicated = DeduplicationEngine.deduplicate(rawItems)
+        val enriched = enrichItems(deduplicated, filters)
+        val timeLabel = "کاتالوگ مرجع آزمایشی"
+        cacheManager.put(q, filterKey, enriched, timeLabel)
+
+        val message = if (webStatus.status == ProviderStatus.REQUIRES_API_KEY) {
+            "جستجوی آنلاین هنوز برای این نسخه فعال نشده است؛ نمایش کاتالوگ آزمایشی تاییدشده."
+        } else {
+            "نمایش کاتالوگ آزمایشی تاییدشده پیدایاب"
+        }
+
+        return SearchResultState.Success(
+            items = enriched.map { it.copy(isBookmarked = isBookmarked(it.id)) },
+            isFromRealWeb = false,
+            cachedTime = timeLabel,
+            message = message
+        )
+    }
+
+    suspend fun performSearch(query: String, filters: ExtractedFilters? = null): List<ProductItem> {
+        return when (val state = performSearchWithState(query, filters)) {
+            is SearchResultState.Success -> state.items
+            is SearchResultState.Error -> {
+                // If error, fallback safely to demo catalog items
+                val demo = marketplaceProvider.search(query, filters)
+                enrichItems(DeduplicationEngine.deduplicate(demo), filters).map { it.copy(isBookmarked = isBookmarked(it.id)) }
+            }
+            is SearchResultState.Empty -> emptyList()
+            is SearchResultState.Loading -> emptyList()
+        }
+    }
+
+    private fun enrichItems(items: List<ProductItem>, filters: ExtractedFilters?): List<ProductItem> {
+        val hasPriceStats = items.size >= 2
         return items.map { item ->
-            item.copy(isBookmarked = bookmarkedIds.contains(item.id))
+            val (risk, warnings) = EvidenceBasedRiskAnalyzer.analyze(item, items)
+            val matchScore = ScoreEngine.computeMatchScore(item, filters)
+            item.copy(
+                riskScore = risk,
+                warnings = warnings.ifEmpty { item.warnings },
+                matchScore = matchScore,
+                hasSufficientDataForPriceAnalysis = hasPriceStats,
+                hasSufficientDataForScore = true
+            )
         }
     }
 
     suspend fun performVisualSearch(tag: String): List<ProductItem> {
-        val items = searchProvider.searchByImage(tag)
-        return items.map { item -> item.copy(isBookmarked = bookmarkedIds.contains(item.id)) }
+        val items = imageProvider.searchByImage(tag)
+        return enrichItems(DeduplicationEngine.deduplicate(items), null).map {
+            it.copy(isBookmarked = bookmarkedIds.contains(it.id))
+        }
     }
 
     suspend fun performVideoSearch(videoTag: String): List<ProductItem> {
-        val items = searchProvider.searchByVideo(videoTag)
-        return items.map { item -> item.copy(isBookmarked = bookmarkedIds.contains(item.id)) }
+        val items = videoProvider.searchByVideo(videoTag)
+        return enrichItems(DeduplicationEngine.deduplicate(items), null).map {
+            it.copy(isBookmarked = bookmarkedIds.contains(it.id))
+        }
     }
 
     suspend fun performFileSearch(fileTitle: String): List<ProductItem> {
-        val items = searchProvider.searchByFile(fileTitle)
-        return items.map { item -> item.copy(isBookmarked = bookmarkedIds.contains(item.id)) }
+        val items = fileProvider.searchByFile(fileTitle)
+        return enrichItems(DeduplicationEngine.deduplicate(items), null).map {
+            it.copy(isBookmarked = bookmarkedIds.contains(it.id))
+        }
     }
 
     fun toggleBookmark(productId: String) {

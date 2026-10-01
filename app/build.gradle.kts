@@ -28,7 +28,15 @@ android {
           ?.trim()
       ?: "").replace("\"", "\\\"")
 
+    val envSearchKey = (System.getenv("SEARCH_API_KEY")
+      ?: rootProject.file(".env").takeIf { it.exists() }?.readLines()
+          ?.firstOrNull { it.startsWith("SEARCH_API_KEY=") }
+          ?.substringAfter("SEARCH_API_KEY=")
+          ?.trim()
+      ?: "").replace("\"", "\\\"")
+
     buildConfigField("String", "GEMINI_API_KEY", "\"$envGeminiKey\"")
+    buildConfigField("String", "SEARCH_API_KEY", "\"$envSearchKey\"")
   }
 
   signingConfigs {
@@ -79,6 +87,7 @@ secrets {
   defaultPropertiesFileName = ".env.example"
   ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
   ignoreList.add("GEMINI_API_KEY")
+  ignoreList.add("SEARCH_API_KEY")
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }

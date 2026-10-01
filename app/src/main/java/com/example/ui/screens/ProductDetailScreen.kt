@@ -40,6 +40,7 @@ fun ProductDetailScreen(
     onToggleBookmark: (String) -> Unit,
     onSetPriceAlert: (ProductItem) -> Unit,
     onShare: (ProductItem) -> Unit,
+    onOpenSourceUrl: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -260,8 +261,18 @@ fun ProductDetailScreen(
                             }
 
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("منبع آگهی: ${item.source}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("بررسی با تطابق دوگانه", fontSize = 10.sp, color = PidayabPrimary)
+                                Text("منبع: ${item.source}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Button(
+                                    onClick = { onOpenSourceUrl(item.sourceUrl) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = PidayabPrimary),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.OpenInNew, contentDescription = null, Modifier.size(13.dp), tint = Color(0xFF00382F))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("مشاهده آگهی", fontSize = 11.sp, color = Color(0xFF00382F), fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
@@ -282,22 +293,30 @@ fun ProductDetailScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ScoreBadge("امتیاز کلی", item.overallScore, Modifier.weight(1f))
-                        ScoreBadge("تطابق", item.matchScore, Modifier.weight(1f))
-                        ScoreBadge("ارزش خرید", item.valueScore, Modifier.weight(1f))
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ScoreBadge("کیفیت آگهی", item.qualityScore, Modifier.weight(1f))
-                        ScoreBadge("قیمت منصفانه", item.priceScore, Modifier.weight(1f))
-                        ScoreBadge("اطمینان اطلاعات", item.confidenceScore, Modifier.weight(1f))
+                    if (item.hasSufficientDataForScore) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ScoreBadge("امتیاز کلی", item.overallScore, Modifier.weight(1f))
+                            ScoreBadge("تطابق", item.matchScore, Modifier.weight(1f))
+                            ScoreBadge("ارزش خرید", item.valueScore, Modifier.weight(1f))
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ScoreBadge("کیفیت آگهی", item.qualityScore, Modifier.weight(1f))
+                            ScoreBadge("قیمت منصفانه", item.priceScore, Modifier.weight(1f))
+                            ScoreBadge("اطمینان اطلاعات", item.confidenceScore, Modifier.weight(1f))
+                        }
+                    } else {
+                        Text(
+                            text = "اطلاعات کافی برای امتیازدهی دقیق وجود ندارد.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -378,18 +397,26 @@ fun ProductDetailScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "محدوده قیمت مشاهده‌شده در بازار: ۶.۵ تا ۷.۴ میلیارد تومان",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PidayabPrimary
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "این آگهی نسبت به میانگین بازار حدود ۲.۳٪ منصفانه‌تر قیمت‌گذاری شده است.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            if (item.hasSufficientDataForPriceAnalysis) {
+                                Text(
+                                    text = "محدوده قیمت مشاهده‌شده در بازار: ۶.۵ تا ۷.۴ میلیارد تومان",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PidayabPrimary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "این آگهی نسبت به میانگین بازار حدود ۲.۳٪ منصفانه‌تر قیمت‌گذاری شده است.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                Text(
+                                    text = "اطلاعات کافی برای تحلیل قیمت وجود ندارد.",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
 
                             if (item.historicalPrices.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(10.dp))

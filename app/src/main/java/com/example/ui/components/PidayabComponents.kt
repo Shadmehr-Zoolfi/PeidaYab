@@ -280,7 +280,7 @@ fun ProductCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    // Demo indicator
+                    // Demo or Real Web indicator
                     if (item.isDemo) {
                         Surface(
                             color = Color(0xCC000000),
@@ -289,6 +289,19 @@ fun ProductCard(
                             Text(
                                 text = "حالت آزمایشی",
                                 color = PidayabAccent,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    } else {
+                        Surface(
+                            color = Color(0xEE00382F),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "نتیجه وب واقعی",
+                                color = PidayabPrimary,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
@@ -420,13 +433,21 @@ fun ProductCard(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Score Chips Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    ScoreBadge("امتیاز کلی", item.overallScore, Modifier.weight(1f))
-                    ScoreBadge("تطابق", item.matchScore, Modifier.weight(1f))
-                    ScoreBadge("ریسک", item.riskScore, Modifier.weight(1f), isRisk = true)
+                if (item.hasSufficientDataForScore) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        ScoreBadge("امتیاز کلی", item.overallScore, Modifier.weight(1f))
+                        ScoreBadge("تطابق", item.matchScore, Modifier.weight(1f))
+                        ScoreBadge("ریسک", item.riskScore, Modifier.weight(1f), isRisk = true)
+                    }
+                } else {
+                    Text(
+                        text = "اطلاعات کافی برای امتیازدهی دقیق وجود ندارد.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))

@@ -35,6 +35,11 @@ data class ProductItem(
     val source: String,
     val sourceUrl: String,
     val isDemo: Boolean = true,
+    val currency: String = "تومان",
+    val lastCheckedTime: String = "امروز",
+    val stockStatus: String = "موجود",
+    val hasSufficientDataForScore: Boolean = true,
+    val hasSufficientDataForPriceAnalysis: Boolean = true,
     val sourceVerificationNote: String = "اطلاعات با استانداردهای منبع اصلی تطبیق داده شد",
     val historicalPrices: List<HistoricalPricePoint> = emptyList(),
     val isBookmarked: Boolean = false,
@@ -133,3 +138,47 @@ data class AdminMetrics(
         "به‌روزرسانی موتور تحلیل قیمت و خوشه‌بندی بازار"
     )
 )
+
+enum class ProviderStatus(val faLabel: String) {
+    CONNECTED_ACTIVE("فعال و متصل"),
+    INACTIVE("غیرفعال"),
+    REQUIRES_API_KEY("نیازمند API Key"),
+    TEMPORARILY_UNAVAILABLE("موقتاً در دسترس نیست")
+}
+
+data class ProviderState(
+    val providerId: String,
+    val providerName: String,
+    val status: ProviderStatus,
+    val statusMessage: String,
+    val isRealWeb: Boolean = false,
+    val lastSyncTime: String? = null
+)
+
+data class PriceAnalysisResult(
+    val hasSufficientData: Boolean,
+    val count: Int = 0,
+    val averagePrice: Long = 0L,
+    val medianPrice: Long = 0L,
+    val minPrice: Long = 0L,
+    val maxPrice: Long = 0L,
+    val formattedAverage: String = "",
+    val formattedMin: String = "",
+    val formattedMax: String = "",
+    val priceRangeText: String = "",
+    val message: String = ""
+)
+
+sealed class SearchResultState {
+    data class Success(
+        val items: List<ProductItem>,
+        val isFromRealWeb: Boolean,
+        val cachedTime: String?,
+        val message: String
+    ) : SearchResultState()
+
+    data class Empty(val message: String) : SearchResultState()
+    data class Error(val message: String, val canFallbackToDemo: Boolean = true) : SearchResultState()
+    data object Loading : SearchResultState()
+}
+

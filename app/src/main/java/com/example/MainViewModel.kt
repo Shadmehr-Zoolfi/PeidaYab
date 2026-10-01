@@ -72,15 +72,40 @@ class MainViewModel(
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
 
+    private val _isRealWebResults = MutableStateFlow(false)
+    val isRealWebResults: StateFlow<Boolean> = _isRealWebResults.asStateFlow()
+
+    private val _forceDemoMode = MutableStateFlow(!repository.isRealWebActive())
+    val forceDemoMode: StateFlow<Boolean> = _forceDemoMode.asStateFlow()
+
+    private val _providersState = MutableStateFlow<List<ProviderState>>(repository.getProvidersState())
+    val providersState: StateFlow<List<ProviderState>> = _providersState.asStateFlow()
+
+    private val _priceAnalysis = MutableStateFlow<PriceAnalysisResult>(PriceAnalysisResult(hasSufficientData = false))
+    val priceAnalysis: StateFlow<PriceAnalysisResult> = _priceAnalysis.asStateFlow()
+
+    private val _lastCheckedTime = MutableStateFlow<String?>("امروز")
+    val lastCheckedTime: StateFlow<String?> = _lastCheckedTime.asStateFlow()
+
+    private val _searchStatusBanner = MutableStateFlow<String?>(null)
+    val searchStatusBanner: StateFlow<String?> = _searchStatusBanner.asStateFlow()
+
     init {
         loadInitialData()
     }
 
     private fun loadInitialData() {
         viewModelScope.launch {
-            val initialList = repository.performSearch("کرولا کراس ۲۰۲۵")
+            val initialSearch = repository.performSearchWithState("کرولا کراس ۲۰۲۵", forceDemo = _forceDemoMode.value)
+            val initialList = if (initialSearch is SearchResultState.Success) initialSearch.items else emptyList()
             _featuredItems.value = initialList
             _searchResults.value = initialList
+            _priceAnalysis.value = repository.calculatePriceAnalysis(initialList)
+            if (initialSearch is SearchResultState.Success) {
+                _isRealWebResults.value = initialSearch.isFromRealWeb
+                _lastCheckedTime.value = initialSearch.cachedTime
+                _searchStatusBanner.value = initialSearch.message
+            }
             _savedSearches.value = repository.getSavedSearches()
             _recentSearches.value = repository.getRecentSearches()
             _priceAlerts.value = repository.getPriceAlerts()
@@ -120,6 +145,26 @@ class MainViewModel(
         _selectedDetailItem.value = null
     }
 
+    fun toggleForceDemo(enabled: Boolean) {
+        _forceDemoMode.value = enabled
+        startSearchWithAgent(_searchQuery.value, _extractedFilters.value)
+    }
+
+    fun openRealSourceUrl(context: android.content.Context, url: String) {
+        if (!com.example.data.engine.UrlValidator.isValidWebUrl(url)) {
+            _snackbarMessage.value = "آدرس اینترنتی این آگهی معتبر نیست."
+            return
+        }
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            _snackbarMessage.value = "امکان باز کردن پیوند در مرورگر وجود ندارد."
+        }
+    }
+
     /**
      * Autonomous search agent execution with 7-step animated progress (Section 7).
      */
@@ -144,7 +189,7 @@ class MainViewModel(
             _agentSteps.value = initialSteps
 
             for (i in 0 until initialSteps.size) {
-                delay(350)
+                delay(300)
                 _agentSteps.value = _agentSteps.value.mapIndexed { index, step ->
                     when {
                         index < i -> step.copy(isDone = true, isActive = false)
@@ -154,12 +199,42 @@ class MainViewModel(
                 }
             }
 
-            val results = repository.performSearch(query, extracted)
-            _searchResults.value = results
+            val searchState = repository.performSearchWithState(query, extracted, forceDemo = _forceDemoMode.value)
+            when (searchState) {
+                is SearchResultState.Success -> {
+                    _searchResults.value = searchState.items
+                    _isRealWebResults.value = searchState.isFromRealWeb
+                    _lastCheckedTime.value = searchState.cachedTime
+                    _searchStatusBanner.value = searchState.message
+                    _priceAnalysis.value = repository.calculatePriceAnalysis(searchState.items)
+                    _agentFoundCount.value = searchState.items.size
+                }
+                is SearchResultState.Empty -> {
+                    _searchResults.value = emptyList()
+                    _isRealWebResults.value = false
+                    _searchStatusBanner.value = searchState.message
+                    _priceAnalysis.value = repository.calculatePriceAnalysis(emptyList())
+                    _agentFoundCount.value = 0
+                }
+                is SearchResultState.Error -> {
+                    _searchStatusBanner.value = searchState.message
+                    _snackbarMessage.value = searchState.message
+                    if (searchState.canFallbackToDemo) {
+                        val fallback = repository.performSearch(query, extracted)
+                        _searchResults.value = fallback
+                        _isRealWebResults.value = false
+                        _priceAnalysis.value = repository.calculatePriceAnalysis(fallback)
+                        _agentFoundCount.value = fallback.size
+                    } else {
+                        _searchResults.value = emptyList()
+                        _agentFoundCount.value = 0
+                    }
+                }
+                is SearchResultState.Loading -> {}
+            }
 
             _agentSteps.value = _agentSteps.value.map { it.copy(isDone = true, isActive = false) }
-            _agentFoundCount.value = results.size
-            delay(400)
+            delay(350)
 
             _showAgentProgress.value = false
             _recentSearches.value = repository.getRecentSearches()

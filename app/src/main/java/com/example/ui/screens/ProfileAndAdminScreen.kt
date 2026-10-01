@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.AdminMetrics
+import com.example.model.ProviderState
+import com.example.model.ProviderStatus
 import com.example.model.UserPreferences
 import com.example.ui.theme.*
 
@@ -27,6 +29,7 @@ import com.example.ui.theme.*
 fun ProfileAndAdminScreen(
     userPreferences: UserPreferences,
     onPreferencesChange: (UserPreferences) -> Unit,
+    providersState: List<ProviderState> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(0) } // 0: پروفایل من و تنظیمات, 1: داشبورد مدیریت
@@ -250,6 +253,60 @@ fun ProfileAndAdminScreen(
                     ) {
                         MetricCard(title = "فراخوانی‌های API", value = "${adminMetrics.apiCallsCount}", icon = Icons.Default.CloudSync, color = PidayabAccent, modifier = Modifier.weight(1f))
                         MetricCard(title = "وضعیت سیستم", value = "۹۹.۹٪ پایدار", icon = Icons.Default.CheckCircle, color = RiskVeryLow, modifier = Modifier.weight(1f))
+                    }
+                }
+
+                // Providers Status Card (Real vs Demo Health)
+                if (providersState.isNotEmpty()) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text("وضعیت اتصالات و موتورهای جستجو (Search Providers)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                providersState.forEach { prov ->
+                                    val (badgeBg, badgeText) = when (prov.status) {
+                                        ProviderStatus.CONNECTED_ACTIVE -> RiskVeryLow.copy(alpha = 0.15f) to RiskVeryLow
+                                        ProviderStatus.REQUIRES_API_KEY -> RiskMedium.copy(alpha = 0.15f) to RiskMedium
+                                        ProviderStatus.TEMPORARILY_UNAVAILABLE -> RiskHigh.copy(alpha = 0.15f) to RiskHigh
+                                        ProviderStatus.INACTIVE -> Color.Gray.copy(alpha = 0.15f) to Color.Gray
+                                    }
+                                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(prov.providerName, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Surface(
+                                                color = badgeBg,
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = prov.status.faLabel,
+                                                    fontSize = 10.sp,
+                                                    color = badgeText,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                        Text(
+                                            text = prov.statusMessage,
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        HorizontalDivider(
+                                            modifier = Modifier.padding(top = 4.dp),
+                                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

@@ -41,6 +41,12 @@ fun UniversalSearchScreen(
     onToggleBookmark: (String) -> Unit,
     onCompare: (ProductItem) -> Unit,
     onShare: (ProductItem) -> Unit,
+    isRealWebResults: Boolean = false,
+    forceDemoMode: Boolean = true,
+    onToggleForceDemo: (Boolean) -> Unit = {},
+    priceAnalysis: com.example.model.PriceAnalysisResult? = null,
+    lastCheckedTime: String? = null,
+    searchStatusBanner: String? = null,
     modifier: Modifier = Modifier
 ) {
     var queryText by remember { mutableStateOf(initialQuery) }
@@ -77,13 +83,93 @@ fun UniversalSearchScreen(
             .testTag("universal_search_screen"),
         contentPadding = PaddingValues(bottom = 90.dp)
     ) {
+        // Source Mode Selector Banner (Real Web vs Demo Catalog)
+        item {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            color = if (isRealWebResults) PidayabPrimary.copy(alpha = 0.2f) else PidayabAccent.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isRealWebResults) PidayabPrimary else PidayabAccent)
+                        ) {
+                            Text(
+                                text = if (isRealWebResults) "نتایج جستجوی واقعی" else "حالت آزمایشی",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isRealWebResults) PidayabPrimary else PidayabAccent,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        if (lastCheckedTime != null) {
+                            Text(
+                                text = "بررسی: $lastCheckedTime",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = if (forceDemoMode) "حالت آزمایشی" else "کاوش آنلاین وب",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Switch(
+                            checked = !forceDemoMode,
+                            onCheckedChange = { onToggleForceDemo(!it) },
+                            modifier = Modifier.height(28.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Status Banner
+        if (searchStatusBanner != null) {
+            item {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = PidayabPrimary, modifier = Modifier.size(16.dp))
+                        Text(text = searchStatusBanner, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
+
         // Top Search Bar & Input Mode Switcher
         item {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 // Mode Tabs (Text, Image, Video, File)
                 TabRow(
@@ -383,15 +469,19 @@ fun UniversalSearchScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${displayedResults.size} نتیجه با اطمینان بالا یافت شد",
+                        text = "${displayedResults.size} نتیجه ${if (isRealWebResults) "واقعی وب" else "کاتالوگ"} یافت شد",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "محدوده قیمت: ۶.۵ تا ۷.۴ میلیارد تومان",
+                        text = if (priceAnalysis?.hasSufficientData == true) {
+                            "محدوده: ${priceAnalysis.priceRangeText}"
+                        } else {
+                            "اطلاعات کافی برای تحلیل قیمت وجود ندارد."
+                        },
                         fontSize = 11.sp,
-                        color = PidayabAccent
+                        color = if (priceAnalysis?.hasSufficientData == true) PidayabAccent else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
