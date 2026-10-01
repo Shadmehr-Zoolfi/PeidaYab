@@ -54,7 +54,7 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
-buildConfigField("String", "GEMINI_API_KEY", "\"${System.getenv("GEMINI_API_KEY") ?: ""}\"")
+
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
