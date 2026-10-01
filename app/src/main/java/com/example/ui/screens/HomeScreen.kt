@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -45,6 +46,11 @@ fun HomeScreen(
     onToggleBookmark: (String) -> Unit,
     onCompare: (ProductItem) -> Unit,
     onShare: (ProductItem) -> Unit,
+    roomSearchHistory: List<com.example.data.local.SearchHistoryEntity> = emptyList(),
+    onOpenVoiceSearch: () -> Unit = {},
+    onOpenCameraSearch: () -> Unit = {},
+    onDeleteHistoryItem: (Long) -> Unit = {},
+    onClearAllHistory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -215,24 +221,55 @@ fun HomeScreen(
                                     singleLine = true
                                 )
 
-                                if (searchQuery.isNotBlank()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
                                     IconButton(
-                                        onClick = {
-                                            val query = searchQuery
-                                            searchQuery = ""
-                                            onSearchSubmit(query)
-                                        },
+                                        onClick = onOpenVoiceSearch,
                                         modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(PidayabPrimary)
-                                            .testTag("home_search_btn")
+                                            .size(36.dp)
+                                            .testTag("home_mic_btn")
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.ArrowBack, // In RTL, ArrowBack points left towards send
-                                            contentDescription = "جستجو",
-                                            tint = Color(0xFF00382F)
+                                            imageVector = Icons.Default.Mic,
+                                            contentDescription = "جستجوی صوتی",
+                                            tint = PidayabPrimary
                                         )
+                                    }
+
+                                    IconButton(
+                                        onClick = onOpenCameraSearch,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .testTag("home_camera_btn")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PhotoCamera,
+                                            contentDescription = "اسکن با دوربین",
+                                            tint = PidayabAccent
+                                        )
+                                    }
+
+                                    if (searchQuery.isNotBlank()) {
+                                        IconButton(
+                                            onClick = {
+                                                val query = searchQuery
+                                                searchQuery = ""
+                                                onSearchSubmit(query)
+                                            },
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(PidayabPrimary)
+                                                .testTag("home_search_btn")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = "جستجو",
+                                                tint = Color(0xFF00382F)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -241,17 +278,24 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // 4 Main Action Buttons
+                    // 5 Main Action Buttons with Voice & Camera
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         ActionCard(
-                            title = "جستجوی متنی",
-                            icon = Icons.Default.EditNote,
+                            title = "جستجوی صوتی",
+                            icon = Icons.Default.Mic,
                             color = PidayabPrimary,
                             modifier = Modifier.weight(1f),
-                            onClick = { onSearchSubmit(searchQuery.ifBlank { "کرولا کراس ۲۰۲۵" }) }
+                            onClick = onOpenVoiceSearch
+                        )
+                        ActionCard(
+                            title = "دوربین CameraX",
+                            icon = Icons.Default.PhotoCamera,
+                            color = PidayabAccent,
+                            modifier = Modifier.weight(1f),
+                            onClick = onOpenCameraSearch
                         )
                         ActionCard(
                             title = "جستجوی تصویری",
@@ -261,7 +305,7 @@ fun HomeScreen(
                             onClick = onVisualSearchClick
                         )
                         ActionCard(
-                            title = "جستجوی ویدیویی",
+                            title = "ویدیو و ریلز",
                             icon = Icons.Default.SmartDisplay,
                             color = PidayabTertiary,
                             modifier = Modifier.weight(1f),
@@ -386,8 +430,8 @@ fun HomeScreen(
             }
         }
 
-        // Recent & Saved Searches Section
-        if (recentSearches.isNotEmpty() || savedSearches.isNotEmpty()) {
+        // Recent & Saved Searches Section (Room Database Persistence)
+        if (roomSearchHistory.isNotEmpty() || recentSearches.isNotEmpty()) {
             item {
                 Column(
                     modifier = Modifier
@@ -399,46 +443,138 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "جستجوهای اخیر و ذخیره‌شده",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "همه",
-                            fontSize = 12.sp,
-                            color = PidayabPrimary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable { onSearchSubmit("کرولا کراس") }
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.Storage, contentDescription = null, tint = PidayabPrimary, modifier = Modifier.size(18.dp))
+                            Text(
+                                text = "تاریخچه جستجوهای محلی (پایگاه داده Room)",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        if (roomSearchHistory.isNotEmpty()) {
+                            Text(
+                                text = "پاک‌سازی",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { onClearAllHistory() }
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(recentSearches.take(4)) { search ->
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.clickable { onSearchSubmit(search) }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        if (roomSearchHistory.isNotEmpty()) {
+                            items(roomSearchHistory.take(8)) { entry ->
+                                val isVehicle = entry.searchType == "VEHICLE"
+                                val isVoice = entry.searchType == "VOICE"
+                                val isCamera = entry.searchType == "CAMERA"
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (isVehicle) PidayabPrimary.copy(alpha = 0.5f)
+                                        else if (isVoice) PidayabAccent.copy(alpha = 0.5f)
+                                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                    ),
+                                    modifier = Modifier.clickable { onSearchSubmit(entry.query) }
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.History,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(
-                                        text = search,
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = when {
+                                                isVehicle -> Icons.Default.DirectionsCar
+                                                isVoice -> Icons.Default.Mic
+                                                isCamera -> Icons.Default.PhotoCamera
+                                                else -> Icons.Default.ShoppingBag
+                                            },
+                                            contentDescription = null,
+                                            tint = when {
+                                                isVehicle -> PidayabPrimary
+                                                isVoice -> PidayabAccent
+                                                isCamera -> ScoreGood
+                                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Column {
+                                            Text(
+                                                text = entry.query,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = when {
+                                                        isVehicle -> "خودرو"
+                                                        isVoice -> "صوتی"
+                                                        isCamera -> "تصویر"
+                                                        else -> "کالا"
+                                                    },
+                                                    fontSize = 10.sp,
+                                                    color = PidayabPrimary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                if (entry.resultCount > 0) {
+                                                    Text(
+                                                        text = "• ${entry.resultCount} نتیجه",
+                                                        fontSize = 10.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        IconButton(
+                                            onClick = { onDeleteHistoryItem(entry.id) },
+                                            modifier = Modifier.size(20.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "حذف",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            items(recentSearches.take(4)) { search ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.clickable { onSearchSubmit(search) }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.History,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            text = search,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
                                 }
                             }
                         }

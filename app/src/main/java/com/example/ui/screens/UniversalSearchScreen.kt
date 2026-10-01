@@ -47,6 +47,11 @@ fun UniversalSearchScreen(
     priceAnalysis: com.example.model.PriceAnalysisResult? = null,
     lastCheckedTime: String? = null,
     searchStatusBanner: String? = null,
+    roomSearchHistory: List<com.example.data.local.SearchHistoryEntity> = emptyList(),
+    onOpenVoiceSearch: () -> Unit = {},
+    onOpenCameraSearch: () -> Unit = {},
+    onDeleteHistoryItem: (Long) -> Unit = {},
+    onClearAllHistory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var queryText by remember { mutableStateOf(initialQuery) }
@@ -242,6 +247,22 @@ fun UniversalSearchScreen(
                                         .weight(1f)
                                         .testTag("search_query_input")
                                 )
+
+                                IconButton(
+                                    onClick = onOpenVoiceSearch,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .testTag("universal_mic_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = "جستجوی صوتی",
+                                        tint = PidayabPrimary
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
                                 Button(
                                     onClick = { onSearchTriggered(queryText, null) },
                                     colors = ButtonDefaults.buttonColors(containerColor = PidayabPrimary),
@@ -264,25 +285,41 @@ fun UniversalSearchScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "جستجوی تصویری با تحلیل هوش مصنوعی اشیاء (حالت آزمایشی)",
+                                text = "جستجوی تصویری با تحلیل هوش مصنوعی اشیاء",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "عکس بگیرید یا از نمونه‌ها انتخاب کنید (حفظ حریم خصوصی: بدون چهره/هویت فردی)",
+                                text = "با دوربین زنده عکاسی کنید یا از نمونه‌های کاتالوگ انتخاب نمایید:",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(10.dp))
+
+                            // Live CameraX trigger button
+                            Button(
+                                onClick = onOpenCameraSearch,
+                                colors = ButtonDefaults.buttonColors(containerColor = PidayabPrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("open_camerax_screen_btn")
+                            ) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color(0xFF00382F), modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("باز کردن دوربین زنده (CameraX)", color = Color(0xFF00382F), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
+                                OutlinedButton(
                                     onClick = { onVisualSearch("کرولا کراس") },
-                                    colors = ButtonDefaults.buttonColors(containerColor = PidayabPrimary),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Icon(Icons.Default.PhotoCamera, contentDescription = null, Modifier.size(16.dp))
+                                    Icon(Icons.Default.DirectionsCar, contentDescription = null, Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("عکس خودرو", fontSize = 12.sp, color = Color(0xFF00382F))
+                                    Text("نمونه خودرو", fontSize = 12.sp)
                                 }
                                 OutlinedButton(
                                     onClick = { onVisualSearch("کفش نایک") },
@@ -419,6 +456,107 @@ fun UniversalSearchScreen(
                                 color = PidayabAccent,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Room Database Search History Section
+        if (roomSearchHistory.isNotEmpty()) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.History, contentDescription = null, tint = PidayabPrimary, modifier = Modifier.size(16.dp))
+                            Text(
+                                text = "جستجوهای ذخیره‌شده محلی (Room)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        Text(
+                            text = "پاک کردن همه",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { onClearAllHistory() }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(roomSearchHistory.take(8)) { entry ->
+                            val isVehicle = entry.searchType == "VEHICLE"
+                            val isVoice = entry.searchType == "VOICE"
+                            val isCamera = entry.searchType == "CAMERA"
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isVehicle) PidayabPrimary.copy(alpha = 0.5f)
+                                    else if (isVoice) PidayabAccent.copy(alpha = 0.5f)
+                                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                                ),
+                                modifier = Modifier.clickable {
+                                    queryText = entry.query
+                                    onSearchTriggered(entry.query, null)
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = when {
+                                            isVehicle -> Icons.Default.DirectionsCar
+                                            isVoice -> Icons.Default.Mic
+                                            isCamera -> Icons.Default.PhotoCamera
+                                            else -> Icons.Default.ShoppingBag
+                                        },
+                                        contentDescription = null,
+                                        tint = when {
+                                            isVehicle -> PidayabPrimary
+                                            isVoice -> PidayabAccent
+                                            isCamera -> ScoreGood
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = entry.query,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
+                                    )
+                                    IconButton(
+                                        onClick = { onDeleteHistoryItem(entry.id) },
+                                        modifier = Modifier.size(16.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "حذف",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -25,12 +25,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.local.AppDatabase
+import com.example.data.local.SearchHistoryRepository
 import com.example.model.PriceAlert
+import com.example.ui.camera.CameraSearchScreen
 import com.example.ui.components.ExtractedFiltersDialog
 import com.example.ui.components.SearchAgentProgressDialog
 import com.example.ui.screens.*
 import com.example.ui.theme.PidayabPrimary
 import com.example.ui.theme.PidayabTheme
+import com.example.ui.voice.VoiceSearchDialog
 
 class MainActivity : ComponentActivity() {
 
@@ -87,9 +91,17 @@ fun PidayabApp(viewModel: MainViewModel) {
     val lastCheckedTime by viewModel.lastCheckedTime.collectAsState()
     val searchStatusBanner by viewModel.searchStatusBanner.collectAsState()
     val providersState by viewModel.providersState.collectAsState()
+    val showVoiceDialog by viewModel.showVoiceDialog.collectAsState()
+    val showCameraScreen by viewModel.showCameraScreen.collectAsState()
+    val roomSearchHistory by viewModel.roomSearchHistory.collectAsState()
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        val db = AppDatabase.getInstance(context)
+        viewModel.initHistory(SearchHistoryRepository(db.searchHistoryDao()))
+    }
 
     LaunchedEffect(snackbarMsg) {
         snackbarMsg?.let { msg ->
@@ -190,8 +202,13 @@ fun PidayabApp(viewModel: MainViewModel) {
                         featuredItems = featuredItems,
                         recentSearches = recentSearches,
                         savedSearches = savedSearches,
+                        roomSearchHistory = roomSearchHistory,
                         onSearchSubmit = { viewModel.onPromptSubmittedFromHome(it) },
                         onCategoryClick = { viewModel.startSearchWithAgent(it) },
+                        onOpenVoiceSearch = { viewModel.openVoiceSearch() },
+                        onOpenCameraSearch = { viewModel.openCameraSearch() },
+                        onDeleteHistoryItem = { viewModel.deleteHistoryItem(it) },
+                        onClearAllHistory = { viewModel.clearAllHistory() },
                         onVisualSearchClick = {
                             viewModel.selectTab(1)
                             viewModel.performVisualSearch("خودرو تویوتا")
@@ -213,7 +230,12 @@ fun PidayabApp(viewModel: MainViewModel) {
                         initialQuery = searchQuery,
                         searchResults = searchResults,
                         extractedFilters = extractedFilters,
+                        roomSearchHistory = roomSearchHistory,
                         onSearchTriggered = { q, filters -> viewModel.startSearchWithAgent(q, filters) },
+                        onOpenVoiceSearch = { viewModel.openVoiceSearch() },
+                        onOpenCameraSearch = { viewModel.openCameraSearch() },
+                        onDeleteHistoryItem = { viewModel.deleteHistoryItem(it) },
+                        onClearAllHistory = { viewModel.clearAllHistory() },
                         onVisualSearch = { viewModel.performVisualSearch(it) },
                         onVideoSearch = { viewModel.performVideoSearch(it) },
                         onFileSearch = { viewModel.performFileSearch(it) },
@@ -311,6 +333,27 @@ fun PidayabApp(viewModel: MainViewModel) {
                 TextButton(onClick = { viewModel.dismissShareDialog() }) {
                     Text("بستن")
                 }
+            }
+        )
+    }
+
+    // Voice Search Dialog
+    if (showVoiceDialog) {
+        VoiceSearchDialog(
+            onDismiss = { viewModel.closeVoiceSearch() },
+            onVoiceTranscribed = { text ->
+                viewModel.performVoiceSearch(text)
+            }
+        )
+    }
+
+    // CameraX Live Capture Screen
+    if (showCameraScreen) {
+        CameraSearchScreen(
+            onClose = { viewModel.closeCameraSearch() },
+            onImageCapturedForSearch = { tag ->
+                viewModel.closeCameraSearch()
+                viewModel.performVisualSearch(tag)
             }
         )
     }

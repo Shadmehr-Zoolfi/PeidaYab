@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ai.AiAgentEngine
 import com.example.data.PidayabRepository
+import com.example.data.local.SearchHistoryEntity
+import com.example.data.local.SearchHistoryRepository
 import com.example.model.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class MainViewModel(
-    private val repository: PidayabRepository = PidayabRepository()
+    private val repository: PidayabRepository = PidayabRepository(),
+    private var historyRepository: SearchHistoryRepository? = null
 ) : ViewModel() {
 
     private val _currentTab = MutableStateFlow(0)
@@ -38,6 +41,15 @@ class MainViewModel(
 
     private val _showAgentProgress = MutableStateFlow(false)
     val showAgentProgress: StateFlow<Boolean> = _showAgentProgress.asStateFlow()
+
+    private val _showVoiceDialog = MutableStateFlow(false)
+    val showVoiceDialog: StateFlow<Boolean> = _showVoiceDialog.asStateFlow()
+
+    private val _showCameraScreen = MutableStateFlow(false)
+    val showCameraScreen: StateFlow<Boolean> = _showCameraScreen.asStateFlow()
+
+    private val _roomSearchHistory = MutableStateFlow<List<SearchHistoryEntity>>(emptyList())
+    val roomSearchHistory: StateFlow<List<SearchHistoryEntity>> = _roomSearchHistory.asStateFlow()
 
     private val _agentSteps = MutableStateFlow<List<SearchAgentStep>>(emptyList())
     val agentSteps: StateFlow<List<SearchAgentStep>> = _agentSteps.asStateFlow()
@@ -92,6 +104,21 @@ class MainViewModel(
 
     init {
         loadInitialData()
+        observeHistory()
+    }
+
+    fun initHistory(repo: SearchHistoryRepository) {
+        historyRepository = repo
+        observeHistory()
+    }
+
+    private fun observeHistory() {
+        val repo = historyRepository ?: return
+        viewModelScope.launch {
+            repo.allHistory.collect { historyList ->
+                _roomSearchHistory.value = historyList
+            }
+        }
     }
 
     private fun loadInitialData() {
@@ -238,7 +265,58 @@ class MainViewModel(
 
             _showAgentProgress.value = false
             _recentSearches.value = repository.getRecentSearches()
+
+            // Save to local Room database schema
+            val count = _agentFoundCount.value ?: _searchResults.value.size
+            val isVehicle = extracted.category == "خودرو" || query.contains("کرولا") || query.contains("خودرو") || query.contains("ماشین") || query.contains("پژو") || query.contains("تویوتا")
+            val type = if (isVehicle) "VEHICLE" else "PRODUCT"
+            historyRepository?.recordSearch(query, type, count, extracted)
+
             _currentTab.value = 1 // Switch to Search results tab
+        }
+    }
+
+    fun openVoiceSearch() {
+        _showVoiceDialog.value = true
+    }
+
+    fun closeVoiceSearch() {
+        _showVoiceDialog.value = false
+    }
+
+    fun openCameraSearch() {
+        _showCameraScreen.value = true
+    }
+
+    fun closeCameraSearch() {
+        _showCameraScreen.value = false
+    }
+
+    fun performVoiceSearch(transcribedText: String) {
+        _showVoiceDialog.value = false
+        val clean = transcribedText.trim()
+        if (clean.isBlank()) return
+        val extracted = AiAgentEngine.extractFilters(clean)
+        val isVehicle = extracted.category == "خودرو" || clean.contains("کرولا") || clean.contains("خودرو") || clean.contains("ماشین")
+        val searchType = if (isVehicle) "VEHICLE" else "VOICE"
+
+        startSearchWithAgent(clean, extracted)
+        viewModelScope.launch {
+            historyRepository?.recordSearch(clean, searchType, _searchResults.value.size, extracted)
+            _snackbarMessage.value = "جستجوی صوتی انجام شد: «$clean»"
+        }
+    }
+
+    fun deleteHistoryItem(id: Long) {
+        viewModelScope.launch {
+            historyRepository?.deleteHistoryItem(id)
+        }
+    }
+
+    fun clearAllHistory() {
+        viewModelScope.launch {
+            historyRepository?.clearAllHistory()
+            _snackbarMessage.value = "تاریخچه جستجوهای محلی پاک شد"
         }
     }
 
@@ -264,6 +342,7 @@ class MainViewModel(
             _searchResults.value = results
             _searchQuery.value = "جستجوی بصری: $tag"
             _currentTab.value = 1
+            historyRepository?.recordSearch("جستجوی بصری: $tag", "CAMERA", results.size)
             _snackbarMessage.value = "تصویر تحلیل شد و ${results.size} مورد منطبق در کاتالوگ آزمایشی یافت گردید."
         }
     }
