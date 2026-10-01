@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build Android Release APK
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -37,20 +37,21 @@ jobs:
             -keypass android \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Build Android Release APK
+      - name: Build Android APK
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          echo "Building PeidaYab Release APK..."
+          echo "Building PeidaYab..."
           gradle :app:assembleDebug
 
       - name: Find APK
         run: |
-          find . -type f -name "*.apk" -print
+          echo "=== APK FILES ==="
+          find "$GITHUB_WORKSPACE" -type f -name "*.apk" -print
 
-      - name: Upload Release APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PeidaYab-release-apk
-          path: '**/build/outputs/apk/release/*.apk'
+          name: PeidaYab-debug-apk
+          path: '**/*.apk'
           if-no-files-found: error
